@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant - Chat dengan AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background-color: #fafafa;
+            color: #171717;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+        }
+        .message-user {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .message-ai {
+            background-color: #f3f4f6;
+            color: #171717;
+        }
+        .typing-indicator {
+            display: flex;
+            padding: 0.5rem;
+        }
+        .typing-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            background-color: #6b7280;
+            border-radius: 50%;
+            margin: 0 0.1rem;
+        }
+        .btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 0.375rem;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn:hover {
+            background-color: #2563eb;
+        }
+        .btn:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+        .animate-bounce {
+            animation: bounce 1s infinite;
+        }
+        .error-message {
+            background-color: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-blue-600 text-white py-4 px-6 shadow-lg">
+            <div class="max-w-4xl mx-auto flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                        <span class="text-blue-600 font-bold text-lg">AI</span>
+                    </div>
+                    <h1 class="text-xl font-bold">AI Assistant</h1>
+                </div>
+                <div class="text-sm text-blue-100">
+                    Powered by OpenAI GPT
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Chat Area -->
+        <main class="flex-1 max-w-4xl mx-auto w-full py-6 px-4">
+            <div class="card h-full flex flex-col">
+                <div class="border-b border-gray-200 py-4 px-6">
+                    <h2 class="text-center text-lg font-semibold">Chat dengan AI Assistant</h2>
+                </div>
+                
+                <div class="flex-1 p-0 overflow-hidden">
+                    <!-- Messages Container -->
+                    <div id="messages-container" class="h-[500px] overflow-y-auto p-4 space-y-4">
+                        <div class="h-full flex items-center justify-center">
+                            <div class="text-center text-gray-500">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <span class="text-2xl">🤖</span>
+                                </div>
+                                <h3 class="text-lg font-medium mb-2">Selamat Datang di AI Assistant</h3>
+                                <p class="text-sm">Mulai percakapan dengan mengetik pesan di bawah. Pastikan API key OpenAI sudah diset!</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="border-t border-gray-200 p-4">
+                        <div class="flex space-x-2">
+                            <input 
+                                id="message-input"
+                                type="text" 
+                                class="input-field"
+                                placeholder="Ketik pesan Anda di sini..."
+                            />
+                            <button id="send-button" class="btn">
+                                Kirim
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2 text-center">
+                            Tekan Enter untuk mengirim, Shift+Enter untuk baris baru
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-gray-100 py-4 px-6 border-t border-gray-200">
+            <div class="max-w-4xl mx-auto text-center text-gray-500 text-sm">
+                <p>© 2024 AI Assistant. Dibuat dengan OpenAI API untuk respons dinamis.</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const messagesContainer = document.getElementById('messages-container');
+            const messageInput = document.getElementById('message-input');
+            const sendButton = document.getElementById('send-button');
+            
+            let messages = []; // Riwayat chat untuk konteks
+            let isLoading = false;
+
+            // Konfigurasi OpenAI API - GANTI DENGAN API KEY ANDA!
+            const OPENAI_API_KEY = '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'; // Masukkan API key di sini
+            const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+
+            // Fungsi untuk scroll ke paling bawah
+            function scrollToBottom() {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+
+            // Fungsi untuk menambah pesan user
+            function addUser Message(content) {
+                const message = {
+                    id: Date.now(),
+                    role: 'user',
+                    content: content,
+                    timestamp: new Date()
+                };
+                messages.push(message);
+                renderMessages();
+                scrollToBottom();
+            }
+
+            // Fungsi untuk menambah pesan AI
+            function addAIMessage(content) {
+                const message = {
+                    id: Date.now() + 1,
+                    role: 'assistant',
+                    content: content,
+                    timestamp: new Date()
+                };
+                messages.push(message);
+                renderMessages();
+                scrollToBottom();
+            }
+
+            // Fungsi untuk memanggil OpenAI API
+            async function getAIResponse(userMessage) {
+                if (!OPENAI_API_KEY || OPENAI_API_KEY === 'YOUR_OPENAI_API_KEY') {
+                    // Fallback jika API key tidak diset
+                    return `Maaf, API key OpenAI belum diset. Respons simulasi: Saya adalah asisten AI yang siap membantu dengan "${userMessage}". Silakan set API key untuk respons nyata.`;
+                }
+
+                try {
+                    // Bangun payload dengan riwayat chat untuk konteks
+                    const messagesPayload = [
+                        { role: 'system', content: 'Kamu adalah asisten AI yang ramah dan membantu, jawab dalam bahasa Indonesia jika pertanyaan dalam bahasa itu.' },
+                        ...messages.slice(-10) // Ambil 10 pesan terakhir untuk konteks (hindari token limit)
+                    ];
+
+                    const response = await fetch(OPENAI_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${OPENAI_API_KEY}`
+                        },
+                        body: JSON.stringify({
+                            model: 'gpt-3.5-turbo', // Bisa diganti ke 'gpt-4' jika punya akses
+                            messages: messagesPayload,
+                            max_tokens: 500, // Batasi panjang respons
+                            temperature: 0.7 // Kreativitas respons
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API Error: ${response.status} - ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    return data.choices[0].message.content.trim();
+                } catch (error) {
+                    console.error('Error calling OpenAI API:', error);
+                    return `Maaf, terjadi kesalahan saat menghubungi AI: ${error.message}. Coba lagi nanti.`;
+                }
+            }
+
+            // Fungsi untuk render semua pesan
+            function renderMessages() {
+                messagesContainer.innerHTML = '';
+                
+                if (messages.length === 0 && !isLoading) {
+                    messagesContainer.innerHTML = `
+                        <div class="h-full flex items-center justify-center">
+                            <div class="text-center text-gray-500">
+                                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <span class="text-2xl">🤖</span>
+                                </div>
+                                <h3 class="text-lg font-medium mb-2">Selamat Datang di AI Assistant</h3>
+                                <p class="text-sm">Mulai percakapan dengan mengetik pesan di bawah</p>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                messages.forEach(message => {
+                    const messageElement = createMessageElement(message);
+                    messagesContainer.appendChild(messageElement);
+                });
+                
+                if (isLoading) {
+                    const loadingElement = createLoadingIndicator();
+                    messagesContainer.appendChild(loadingElement);
+                }
+                
+                scrollToBottom();
+            }
+
+            // Fungsi untuk membuat elemen pesan (sama seperti sebelumnya)
+            function createMessageElement(message) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`;
+                
+                const messageBubble = document.createElement('div');
+                messageBubble.className = `max-w-[80%] rounded-lg p-3 ${message.role === 'user' ? 'message-user' : 'message-ai'}`;
+                
+                const bubbleContent = document.createElement('div');
+                bubbleContent.className = 'flex items-start space-x-2';
+                
+                if (message.role === 'assistant') {
+                    const aiIcon = document.createElement('div');
+                    aiIcon.className = 'w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1';
+                    aiIcon.innerHTML = '<span class="text-xs text-white">AI</span>';
+                    bubbleContent.appendChild(aiIcon);
+                }
+                
+                const messageTextContainer = document.createElement('div');
+                messageTextContainer.className = 'flex-1';
+                
+                const messageText = document.createElement('p');
+                messageText.className = `text-sm whitespace-pre-wrap ${message.role === 'assistant' && message.content.startsWith('Maaf, terjadi kesalahan') ? 'error-message' : ''}`;
+                messageText.textContent = message.content;
+                messageTextContainer.appendChild(messageText);
+                
+                const messageTime = document.createElement('div');
+                messageTime.className = `text-xs mt-1 ${message.role === 'user' ? 'text-blue-100' : 'text-gray-500'}`;
+                messageTime.textContent = formatTime(message.timestamp);
+                messageTextContainer.appendChild(messageTime);
+                
+                bubbleContent.appendChild(messageTextContainer);
+                
+                if (message.role === 'user') {
+                    const userIcon = document.createElement('div');
+                    userIcon.className = 'w-6 h-6 bg-white rounded-full flex items-center justify-center flex-shrink-0 mt-1';
+                    userIcon.innerHTML = '<span class="text-xs text-blue-600">YOU</span>';
+                    bubbleContent.appendChild(userIcon);
+                }
+                
+                messageBubble.appendChild(bubbleContent);
+                messageDiv.appendChild(messageBubble);
+                
+                return messageDiv;
+            }
+
+            // Fungsi untuk membuat indikator loading (sama seperti sebelumnya)
+            function createLoadingIndicator() {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'flex justify-start';
+                
+                const loadingBubble = document.createElement('div');
+                loadingBubble.className = 'bg-gray-100 text-gray-800 max-w-[80%] rounded-lg p-3';
+                
+                const loadingContent = document.createElement('div');
+                loadingContent.className = 'flex items-center space-x-2';
+                
+                const aiIcon = document.createElement('div');
+                aiIcon.className = 'w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0';
+                aiIcon.innerHTML = '<span class="text-xs text-white">AI</span>';
+                loadingContent.appendChild(aiIcon);
+                
+                const dotsContainer = document.createElement('div');
+                dotsContainer.className = 'flex space-x-1';
+                
+                for (let i = 0; i < 3; i++) {
+                    const dot = document.createElement('div');
+                    dot.className = 'w-2 h-2 bg-gray-500 rounded-full animate-bounce';
+                    dot.style.animationDelay = `${i * 0.1}s`;
+                    dotsContainer.appendChild(dot);
+                }
+                
+                loadingContent.appendChild(dotsContainer);
+                loadingBubble.appendChild(loadingContent);
+                loadingDiv.appendChild(loadingBubble);
+                
+                return loadingDiv;
+            }
+
+            // Fungsi untuk format waktu (sama seperti sebelumnya)
+            function formatTime(date) {
+                return date.toLocaleTimeString('id-ID', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            }
+
+            // Event listener untuk tombol kirim
+            async function sendMessage() {
+                const userMessage = messageInput.value.trim();
+                if (!userMessage || isLoading) return;
+
+                addUser Message(userMessage);
+                messageInput.value = '';
+                isLoading = true;
+                sendButton.disabled = true;
+                renderMessages();
+
+                try {
+                    const aiResponse = await getAIResponse(userMessage);
+                    addAIMessage(aiResponse);
+                } catch (error) {
+                    addAIMessage(`Error: ${error.message}`);
+                } finally {
+                    isLoading = false;
+                    sendButton.disabled = false;
+                    renderMessages();
+                }
+            }
+
+            sendButton.addEventListener('click', sendMessage);
+
+            // Event listener untuk input (Enter untuk kirim)
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
